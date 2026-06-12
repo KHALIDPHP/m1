@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة تحكم مايكروتك الذكية | Smart MikroTik Web Panel</title>
+    <!-- Google Fonts: Outfit (English) & Cairo (Arabic) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons for clean vector icon pack -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Chart.js for beautiful traffic charts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- QRious for client-side QR Code generation inside tickets -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="dark-theme">
+    <!-- Glassmorphic Background Elements -->
+    <div class="bg-glow bg-glow-1"></div>
+    <div class="bg-glow bg-glow-2"></div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="toast hidden">
+        <i data-lucide="info" class="toast-icon"></i>
+        <span id="toast-message">رسالة تنبيهية</span>
+    </div>
+
+    <!-- App Container -->
+    <div class="app-wrapper">
+        <!-- ==================== CONNECTION SCREEN ==================== -->
+        <section id="connection-screen" class="glass-card fade-in">
+            <div class="connection-header">
+                <div class="logo-area animate-pulse">
+                    <i data-lucide="router" class="logo-icon"></i>
+                    <h1>MikroTik <span>Panel</span></h1>
+                </div>
+                <button id="lang-toggle-conn" class="btn btn-secondary btn-sm">English</button>
+            </div>
+            
+            <p class="section-desc" data-localize="conn_subtitle">أدخل بيانات اتصال راوتر مايكروتك الخاص بك للتحكم به من أي مكان في العالم.</p>
+
+            <div class="conn-grid">
+                <!-- Left: Saved Connections list -->
+                <div class="saved-connections-panel">
+                    <h3 data-localize="saved_routers">الراوترات المحفوظة</h3>
+                    <div id="saved-routers-list" class="routers-list">
+                        <div class="empty-routers-list" data-localize="no_saved_routers">لا يوجد راوترات محفوظة حالياً</div>
+                    </div>
+                </div>
+
+                <!-- Right: Connection Form -->
+                <div class="connection-form-panel">
+                    <h3 id="form-title" data-localize="new_connection">اتصال جديد بالراوتر</h3>
+                    <form id="router-form">
+                        <input type="hidden" id="router-index" value="">
+                        
+                        <div class="input-group">
+                            <label for="router-name" data-localize="label_conn_name">اسم الاتصال</label>
+                            <div class="input-wrapper">
+                                <i data-lucide="tag" class="input-icon"></i>
+                                <input type="text" id="router-name" placeholder="مثال: راوتر المنزل" required>
+                            </div>
+                        </div>
+
+                        <div class="input-group">
+                            <label for="router-host" data-localize="label_ip">عنوان الراوتر (IP / DDNS)</label>
+                            <div class="input-wrapper">
+                                <i data-lucide="globe" class="input-icon"></i>
+                                <input type="text" id="router-host" placeholder="192.168.88.1 أو custom.sn.mynetname.net" required>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="input-group col-6">
+                                <label for="router-type" data-localize="label_conn_type">نوع الاتصال</label>
+                                <div class="input-wrapper">
+                                    <i data-lucide="settings" class="input-icon"></i>
+                                    <select id="router-type">
+                                        <option value="api">API (منفذ 8728)</option>
+                                        <option value="api-ssl">API SSL (منفذ 8729)</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="input-group col-6">
+                                <label for="router-port" data-localize="label_port">المنفذ (Port)</label>
+                                <div class="input-wrapper">
+                                    <i data-lucide="hash" class="input-icon"></i>
+                                    <input type="number" id="router-port" value="8728" required>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="input-group col-6">
+                                <label for="router-user" data-localize="label_user">اسم المستخدم</label>
+                                <div class="input-wrapper">
+                                    <i data-lucide="user" class="input-icon"></i>
+                                    <input type="text" id="router-user" value="admin" required>
+                                </div>
+                            </div>
+                            <div class="input-group col-6">
+                                <label for="router-pass" data-localize="label_pass">كلمة المرور</label>
+                                <div class="input-wrapper">
+                                    <i data-lucide="lock" class="input-icon"></i>
+                                    <input type="password" id="router-pass" placeholder="اتركه فارغاً إن لم يوجد">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="button" id="btn-save-router" class="btn btn-secondary" data-localize="btn_save">حفظ الجهاز</button>
+                            <button type="submit" id="btn-connect-router" class="btn btn-primary btn-icon">
+                                <span data-localize="btn_connect">اتصال الآن</span>
+                                <i data-lucide="arrow-left" class="btn-arrow"></i>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Configuration Helper Accordion -->
+            <div class="config-helper-card">
+                <div class="helper-header" id="helper-toggle">
+                    <i data-lucide="help-circle"></i>
+                    <span data-localize="helper_title">كيف أقوم بإعداد المايكروتك ليتصل بالإنترنت؟</span>
+                    <i data-lucide="chevron-down" class="helper-chevron"></i>
+                </div>
+                <div class="helper-content hidden" id="helper-content">
+                    <ol>
+                        <li data-localize="help_step1">قم بتسجيل الدخول للراوتر عبر برنامج <strong>Winbox</strong>.</li>
+                        <li data-localize="help_step2">اذهب إلى <strong>IP -> Services</strong> وقم بتفعيل الخدمة <strong>api</strong> (منفذ 8728) أو <strong>api-ssl</strong> (منفذ 8729).</li>
+                        <li data-localize="help_step3">للاتصال من خارج الشبكة، قم بتفعيل خدمة الـ DDNS المجانية بالذهاب إلى <strong>IP -> Cloud</strong> وتفعيل خيار <strong>DDNS Enabled</strong> ثم نسخ العنوان الظاهر.</li>
+                        <li data-localize="help_step4">إذا كان المايكروتك خلف مودم إنترنت، يجب عمل <strong>Port Forwarding</strong> للمنفذ 8728 أو 8729 من المودم إلى الآيبي الخاص بالمايكروتك.</li>
+                    </ol>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ==================== MAIN PANEL SCREEN ==================== -->
+        <div id="main-panel" class="panel-layout hidden">
+            <!-- Sidebar Navigation -->
+            <aside class="glass-sidebar">
+                <div class="sidebar-logo">
+                    <i data-lucide="cpu" class="logo-icon animate-pulse"></i>
+                    <h2>M-Panel</h2>
+                </div>
+                <nav class="sidebar-menu">
+                    <a href="#tab-dashboard" class="menu-item active" data-tab="dashboard">
+                        <i data-lucide="layout-dashboard"></i>
+                        <span data-localize="menu_dashboard">الرئيسية</span>
+                    </a>
+                    <a href="#tab-hotspot" class="menu-item" data-tab="hotspot">
+                        <i data-lucide="wifi"></i>
+                        <span data-localize="menu_hotspot">الهوتسبوت</span>
+                    </a>
+                    <a href="#tab-clients" class="menu-item" data-tab="clients">
+                        <i data-lucide="users"></i>
+                        <span data-localize="menu_clients">العملاء & DHCP</span>
+                    </a>
+                    <a href="#tab-logs" class="menu-item" data-tab="logs">
+                        <i data-lucide="terminal"></i>
+                        <span data-localize="menu_logs">السجلات</span>
+                    </a>
+                    <a href="#tab-tools" class="menu-item" data-tab="tools">
+                        <i data-lucide="wrench"></i>
+                        <span data-localize="menu_tools">الأدوات والتحكم</span>
+                    </a>
+                </nav>
+                <div class="sidebar-footer">
+                    <button id="btn-disconnect" class="btn btn-danger btn-block btn-icon-only">
+                        <i data-lucide="log-out"></i>
+                        <span data-localize="btn_disconnect">قطع الاتصال</span>
+                    </button>
+                </div>
+            </aside>
+
+            <!-- Main Content Area -->
+            <main class="panel-content">
+                <!-- Header Status Bar -->
+                <header class="glass-header">
+                    <div class="router-info-header">
+                        <h2 id="connected-router-name">جاري الاتصال...</h2>
+                        <div class="router-status-indicator">
+                            <span class="pulse-indicator"></span>
+                            <span id="router-ip-display">0.0.0.0</span>
+                        </div>
+                    </div>
+                    <div class="header-actions">
+                        <button id="lang-toggle-panel" class="btn btn-secondary btn-sm">English</button>
+                        <div class="theme-switcher">
+                            <button id="theme-toggle" class="btn-circle">
+                                <i data-lucide="sun" id="theme-icon-sun" class="hidden"></i>
+                                <i data-lucide="moon" id="theme-icon-moon"></i>
+                            </button>
+                        </div>
+                    </div>
+                </header>
+
+                <!-- ==================== TAB: DASHBOARD ==================== -->
+                <section id="tab-dashboard" class="tab-section fade-in">
+                    <!-- Resource Stats Grid -->
+                    <div class="stats-grid">
+                        <div class="stat-card glass-card">
+                            <div class="stat-icon cpu-color"><i data-lucide="cpu"></i></div>
+                            <div class="stat-details">
+                                <h4 data-localize="stat_cpu">المعالج CPU</h4>
+                                <div class="stat-value"><span id="stat-cpu-val">0</span>%</div>
+                                <div class="progress-bar-container">
+                                    <div id="stat-cpu-bar" class="progress-bar cpu-color-bg" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="stat-card glass-card">
+                            <div class="stat-icon ram-color"><i data-lucide="database"></i></div>
+                            <div class="stat-details">
+                                <h4 data-localize="stat_ram">الذاكرة RAM</h4>
+                                <div class="stat-value"><span id="stat-ram-val">0</span>%</div>
+                                <div class="stat-desc"><span id="stat-ram-free">0</span> MB <span data-localize="stat_free">حر</span></div>
+                                <div class="progress-bar-container">
+                                    <div id="stat-ram-bar" class="progress-bar ram-color-bg" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="stat-card glass-card">
+                            <div class="stat-icon disk-color"><i data-lucide="hard-drive"></i></div>
+                            <div class="stat-details">
+                                <h4 data-localize="stat_disk">المساحة HDD</h4>
+                                <div class="stat-value"><span id="stat-disk-val">0</span>%</div>
+                                <div class="stat-desc"><span id="stat-disk-free">0</span> MB <span data-localize="stat_free">حر</span></div>
+                                <div class="progress-bar-container">
+                                    <div id="stat-disk-bar" class="progress-bar disk-color-bg" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="stat-card glass-card">
+                            <div class="stat-icon uptime-color"><i data-lucide="clock"></i></div>
+                            <div class="stat-details">
+                                <h4 data-localize="stat_uptime">وقت التشغيل</h4>
+                                <div class="stat-value uptime-text" id="stat-uptime-val">0d 00:00:00</div>
+                                <div class="stat-desc" id="stat-board-val">MikroTik Board</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Interface Network Traffic & Info -->
+                    <div class="traffic-section glass-card">
+                        <div class="traffic-header">
+                            <h3 data-localize="traffic_title">مراقبة حركة الشبكة الفورية</h3>
+                            <div class="interface-selector-wrapper">
+                                <label for="interface-select" data-localize="select_interface">الواجهة النشطة:</label>
+                                <select id="interface-select" class="glass-select">
+                                    <option value="">جاري جلب الواجهات...</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="traffic-graph-container">
+                            <canvas id="trafficChart"></canvas>
+                        </div>
+                        <div class="traffic-indicators">
+                            <div class="indicator-item">
+                                <span class="indicator-dot download-color-bg"></span>
+                                <span data-localize="graph_download">التحميل (Download):</span>
+                                <strong id="live-download-rate">0.00 Kbps</strong>
+                            </div>
+                            <div class="indicator-item">
+                                <span class="indicator-dot upload-color-bg"></span>
+                                <span data-localize="graph_upload">الرفع (Upload):</span>
+                                <strong id="live-upload-rate">0.00 Kbps</strong>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ==================== TAB: HOTSPOT ==================== -->
+                <section id="tab-hotspot" class="tab-section hidden fade-in">
+                    <!-- Hotspot Tabs Menu -->
+                    <div class="sub-tabs-container">
+                        <button class="sub-tab-btn active" data-subtab="hotspot-active" data-localize="hotspot_tab_active">المستخدمين النشطين</button>
+                        <button class="sub-tab-btn" data-subtab="hotspot-users" data-localize="hotspot_tab_accounts">حسابات الهوتسبوت</button>
+                        <button class="sub-tab-btn" data-subtab="hotspot-profiles" data-localize="hotspot_tab_profiles">البروفايلات</button>
+                    </div>
+
+                    <!-- Sub-Tab: Active Users -->
+                    <div id="subtab-hotspot-active" class="subtab-content glass-card">
+                        <div class="table-header">
+                            <h3 data-localize="hotspot_active_title">المستخدمين المتصلين بالإنترنت حالياً</h3>
+                            <button id="btn-refresh-active" class="btn btn-secondary btn-icon-only"><i data-lucide="refresh-cw"></i></button>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="glass-table">
+                                <thead>
+                                    <tr>
+                                        <th data-localize="table_user">اسم المستخدم</th>
+                                        <th data-localize="table_ip">عنوان IP</th>
+                                        <th data-localize="table_mac">عنوان MAC</th>
+                                        <th data-localize="table_uptime">وقت الاتصال</th>
+                                        <th data-localize="table_bytes">حجم البيانات (تحميل/رفع)</th>
+                                        <th data-localize="table_actions">التحكم</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="hotspot-active-list">
+                                    <tr>
+                                        <td colspan="6" class="table-loading" data-localize="table_loading">جاري تحميل البيانات...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Sub-Tab: Hotspot Users Database -->
+                    <div id="subtab-hotspot-users" class="subtab-content hidden">
+                        <div class="hotspot-actions-grid">
+                            <!-- Left: Create Hotspot User / Ticket -->
+                            <div class="glass-card panel-form">
+                                <h3 data-localize="add_hotspot_user">إنشاء مستخدم هوتسبوت جديد</h3>
+                                <form id="create-user-form">
+                                    <div class="form-row">
+                                        <div class="input-group col-6">
+                                            <label for="hs-username" data-localize="label_hs_user">اسم المستخدم</label>
+                                            <input type="text" id="hs-username" placeholder="مثال: user55" required>
+                                        </div>
+                                        <div class="input-group col-6">
+                                            <label for="hs-password" data-localize="label_hs_pass">كلمة المرور</label>
+                                            <input type="text" id="hs-password" placeholder="اتركه فارغاً إن رغبت">
+                                        </div>
+                                    </div>
+                                    <div class="form-row">
+                                        <div class="input-group col-6">
+                                            <label for="hs-profile" data-localize="label_hs_profile">الملف الشخصي (Profile)</label>
+                                            <select id="hs-profile" class="glass-select">
+                                                <option value="default">default</option>
+                                            </select>
+                                        </div>
+                                        <div class="input-group col-6">
+                                            <label for="hs-uptime" data-localize="label_hs_uptime">حد وقت التشغيل</label>
+                                            <input type="text" id="hs-uptime" placeholder="مثال: 1d أو 1h30m (اختياري)">
+                                        </div>
+                                    </div>
+                                    <div class="form-row">
+                                        <div class="input-group col-6">
+                                            <label for="hs-bytes" data-localize="label_hs_bytes">حد الاستهلاك (حجم البيانات)</label>
+                                            <input type="text" id="hs-bytes" placeholder="مثال: 1G أو 500M (اختياري)">
+                                        </div>
+                                        <div class="input-group col-6">
+                                            <label for="hs-comment" data-localize="label_hs_comment">ملاحظة / تعليق</label>
+                                            <input type="text" id="hs-comment" placeholder="مثال: كرت ساعة أو مبيعات">
+                                        </div>
+                                    </div>
+                                    <div class="form-actions-flex">
+                                        <button type="button" id="btn-generate-rand" class="btn btn-secondary" data-localize="btn_rand">توليد عشوائي</button>
+                                        <button type="submit" class="btn btn-primary" data-localize="btn_create_ticket">إنشاء كرت / مستخدم</button>
+                                    </div>
+                                </form>
+                            </div>
+
+                            <!-- Right: Existing Hotspot Users List -->
+                            <div class="glass-card panel-table-card">
+                                <div class="table-header">
+                                    <h3 data-localize="hotspot_users_title">الحسابات المخزنة</h3>
+                                    <button id="btn-refresh-users" class="btn btn-secondary btn-icon-only"><i data-lucide="refresh-cw"></i></button>
+                                </div>
+                                <div class="table-responsive select-users-table">
+                                    <table class="glass-table">
+                                        <thead>
+                                            <tr>
+                                                <th data-localize="table_user">المستخدم</th>
+                                                <th data-localize="table_pass">كلمة المرور</th>
+                                                <th data-localize="table_profile">الملف</th>
+                                                <th data-localize="table_comment">الملاحظة</th>
+                                                <th data-localize="table_actions">التحكم</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="hotspot-users-list">
+                                            <tr>
+                                                <td colspan="5" class="table-loading" data-localize="table_loading">جاري تحميل البيانات...</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sub-Tab: Hotspot Profiles -->
+                    <div id="subtab-hotspot-profiles" class="subtab-content glass-card">
+                        <div class="table-header">
+                            <h3 data-localize="hotspot_profiles_title">ملفات تعريف مستخدمي الهوتسبوت</h3>
+                            <button id="btn-refresh-profiles" class="btn btn-secondary btn-icon-only"><i data-lucide="refresh-cw"></i></button>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="glass-table">
+                                <thead>
+                                    <tr>
+                                        <th data-localize="table_profile_name">اسم الملف</th>
+                                        <th data-localize="table_shared_users">المستخدمين المشتركين بنفس الحساب</th>
+                                        <th data-localize="table_rate_limit">السرعة المحددة (Rate Limit)</th>
+                                        <th data-localize="table_keepalive">وقت بقاء الاتصال (Keepalive)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="hotspot-profiles-list">
+                                    <tr>
+                                        <td colspan="4" class="table-loading" data-localize="table_loading">جاري تحميل البيانات...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ==================== TAB: CLIENTS & DHCP ==================== -->
+                <section id="tab-clients" class="tab-section hidden fade-in">
+                    <!-- DHCP & PPP Tabs -->
+                    <div class="sub-tabs-container">
+                        <button class="sub-tab-btn active" data-subtab="clients-dhcp" data-localize="clients_tab_dhcp">عقود DHCP Leases</button>
+                        <button class="sub-tab-btn" data-subtab="clients-ppp" data-localize="clients_tab_ppp">مشتركي PPPoE / PPP</button>
+                    </div>
+
+                    <!-- DHCP Leases -->
+                    <div id="subtab-clients-dhcp" class="subtab-content glass-card">
+                        <div class="table-header">
+                            <h3 data-localize="dhcp_leases_title">توزيع عناوين الآيبي النشطة (DHCP Leases)</h3>
+                            <button id="btn-refresh-dhcp" class="btn btn-secondary btn-icon-only"><i data-lucide="refresh-cw"></i></button>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="glass-table">
+                                <thead>
+                                    <tr>
+                                        <th data-localize="table_ip">عنوان IP</th>
+                                        <th data-localize="table_mac">عنوان MAC</th>
+                                        <th data-localize="table_host_name">اسم الجهاز</th>
+                                        <th data-localize="table_status">الحالة</th>
+                                        <th data-localize="table_comment">الملاحظة</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="dhcp-leases-list">
+                                    <tr>
+                                        <td colspan="5" class="table-loading" data-localize="table_loading">جاري تحميل البيانات...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- PPPoE Leases -->
+                    <div id="subtab-clients-ppp" class="subtab-content glass-card hidden">
+                        <div class="table-header">
+                            <h3 data-localize="ppp_active_title">مستخدمي الـ PPP والاشتراكات المتصلة</h3>
+                            <button id="btn-refresh-ppp" class="btn btn-secondary btn-icon-only"><i data-lucide="refresh-cw"></i></button>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="glass-table">
+                                <thead>
+                                    <tr>
+                                        <th data-localize="table_user">اسم المستخدم</th>
+                                        <th data-localize="table_service">الخدمة</th>
+                                        <th data-localize="table_caller_id">عنوان المتصل (Caller ID)</th>
+                                        <th data-localize="table_ip">عنوان IP الممنوح</th>
+                                        <th data-localize="table_uptime">وقت الاتصال</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="ppp-active-list">
+                                    <tr>
+                                        <td colspan="5" class="table-loading" data-localize="table_loading">جاري تحميل البيانات...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ==================== TAB: LOGS ==================== -->
+                <section id="tab-logs" class="tab-section hidden fade-in">
+                    <div class="glass-card logs-console-card">
+                        <div class="table-header">
+                            <h3 data-localize="logs_title">سجل عمليات جهاز المايكروتك (System Logs)</h3>
+                            <div class="console-actions">
+                                <button id="btn-refresh-logs" class="btn btn-secondary"><i data-lucide="refresh-cw"></i> <span data-localize="btn_refresh">تحديث السجل</span></button>
+                                <button id="btn-clear-logs-view" class="btn btn-secondary"><i data-lucide="trash-2"></i> <span data-localize="btn_clear_view">مسح الشاشة</span></button>
+                            </div>
+                        </div>
+                        <div class="console-wrapper">
+                            <pre id="logs-console" class="console-output"></pre>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ==================== TAB: TOOLS ==================== -->
+                <section id="tab-tools" class="tab-section hidden fade-in">
+                    <div class="tools-grid">
+                        <!-- Ping Tool Card -->
+                        <div class="glass-card tool-card">
+                            <div class="tool-title-area">
+                                <i data-lucide="radio" class="tool-icon ping-color"></i>
+                                <h3 data-localize="tool_ping_title">أداة فحص الاتصال (Ping)</h3>
+                            </div>
+                            <p data-localize="tool_ping_desc">أرسل حزم اختبار ping مباشرة من جهاز المايكروتك إلى أي خادم خارجي أو موقع ويب للتحقق من الاتصال بالإنترنت.</p>
+                            <form id="ping-form" class="ping-form">
+                                <div class="input-wrapper">
+                                    <i data-lucide="globe"></i>
+                                    <input type="text" id="ping-host" value="8.8.8.8" placeholder="مثال: google.com أو 8.8.8.8" required>
+                                </div>
+                                <button type="submit" id="btn-ping" class="btn btn-primary" data-localize="btn_run_ping">بدء الفحص</button>
+                            </form>
+                            <div id="ping-results-wrapper" class="ping-results hidden">
+                                <h5 data-localize="ping_results_title">النتائج الفورية:</h5>
+                                <pre id="ping-output"></pre>
+                            </div>
+                        </div>
+
+                        <!-- Router Actions Card -->
+                        <div class="glass-card tool-card font-controls-card">
+                            <div class="tool-title-area">
+                                <i data-lucide="power" class="tool-icon power-color"></i>
+                                <h3 data-localize="tool_power_title">إجراءات الطاقة والتحكم</h3>
+                            </div>
+                            <p data-localize="tool_power_desc">إجراءات هامة للتحكم بجهاز الراوتر عن بعد. يرجى توخي الحذر عند إرسال هذه الأوامر.</p>
+                            <div class="power-buttons">
+                                <button id="btn-reboot" class="btn btn-warning btn-icon-only">
+                                    <i data-lucide="rotate-ccw"></i>
+                                    <span data-localize="btn_reboot_router">إعادة تشغيل الراوتر</span>
+                                </button>
+                                <button id="btn-shutdown" class="btn btn-danger btn-icon-only">
+                                    <i data-lucide="shield-alert"></i>
+                                    <span data-localize="btn_shutdown_router">إيقاف تشغيل الراوتر</span>
+                                </button>
+                            </div>
+                            <div id="power-confirm-modal" class="confirm-overlay hidden">
+                                <div class="confirm-box glass-card">
+                                    <i data-lucide="alert-triangle" class="warn-icon"></i>
+                                    <h4 id="confirm-modal-title">هل أنت متأكد؟</h4>
+                                    <p id="confirm-modal-desc">قد يؤدي هذا الإجراء إلى انقطاع الخدمة عن جميع المتصلين حالياً.</p>
+                                    <div class="confirm-actions">
+                                        <button id="btn-confirm-cancel" class="btn btn-secondary" data-localize="btn_cancel">إلغاء</button>
+                                        <button id="btn-confirm-execute" class="btn btn-danger" data-localize="btn_confirm">نعم، تنفيذ الإجراء</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <!-- ==================== TICKET MODAL VIEW ==================== -->
+    <div id="ticket-modal" class="modal-overlay hidden">
+        <div class="modal-card ticket-modal-card glass-card fade-in">
+            <div class="modal-header">
+                <h3 data-localize="ticket_modal_title">تذكرة الهوتسبوت الجاهزة للطباعة</h3>
+                <button id="btn-close-ticket" class="btn-circle btn-close"><i data-lucide="x"></i></button>
+            </div>
+            
+            <div class="modal-body">
+                <!-- Printable Ticket Card Container -->
+                <div id="printable-ticket" class="ticket-card">
+                    <div class="ticket-bg-pattern"></div>
+                    <div class="ticket-header">
+                        <div class="ticket-logo">
+                            <i data-lucide="wifi" class="ticket-icon"></i>
+                            <span>FAST WI-FI</span>
+                        </div>
+                        <div class="ticket-title" data-localize="ticket_card_title">كرت اتصال بالإنترنت</div>
+                    </div>
+                    <div class="ticket-body">
+                        <div class="ticket-credentials">
+                            <div class="cred-item">
+                                <span class="cred-label" data-localize="ticket_username">اسم المستخدم (User):</span>
+                                <span class="cred-value" id="ticket-val-username">user_123</span>
+                            </div>
+                            <div class="cred-item" id="ticket-cred-pass-wrapper">
+                                <span class="cred-label" data-localize="ticket_password">كلمة المرور (Pass):</span>
+                                <span class="cred-value" id="ticket-val-password">456789</span>
+                            </div>
+                        </div>
+                        <div class="ticket-qr-section">
+                            <canvas id="ticket-qr"></canvas>
+                            <span class="qr-desc" data-localize="ticket_qr_desc">امسح الكود للاتصال السريع</span>
+                        </div>
+                    </div>
+                    <div class="ticket-footer">
+                        <div class="ticket-info">
+                            <span id="ticket-val-limit">حد التشغيل: 1 يوم</span>
+                            <span id="ticket-val-bytes">حد البيانات: 2 جيجا</span>
+                        </div>
+                        <div class="ticket-disclaimer" data-localize="ticket_footer_disclaimer">شكراً لاستخدامك شبكتنا. يحظر استخدامه في أعمال غير قانونية.</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button id="btn-print-ticket" class="btn btn-primary btn-icon">
+                    <i data-lucide="printer"></i>
+                    <span data-localize="btn_print">طباعة التذكرة</span>
+                </button>
+            </div>
+        </div>
+    </div>
+    <script src="js/app.js"></script>
+</body>
+</html>
