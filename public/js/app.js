@@ -233,7 +233,7 @@ let chartTxData = [];
 // --------------------------------------------------------------------------
 // 3. INITIALIZATION
 // --------------------------------------------------------------------------
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
     // 1. Initialize Icons
     lucide.createIcons();
 
@@ -249,7 +249,133 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // 4. Attach Event Listeners
     setupEventListeners();
+
+    // 5. CHECK FOR AUTO-CONNECT (server env vars configured)
+    try {
+        const configRes = await fetch('/api/config');
+        const config = await configRes.json();
+
+        if (config.autoConnect && config.router) {
+            const r = config.router;
+
+            // Pre-fill form with router details
+            document.getElementById("router-name").value = r.name;
+            document.getElementById("router-host").value = r.host;
+            document.getElementById("router-type").value = r.type || 'api';
+            document.getElementById("router-port").value = r.port || 8728;
+            document.getElementById("router-user").value = r.user;
+
+            // Show auto-connect banner
+            showAutoConnectBanner(r.name, r.host);
+
+            // Auto connect after short delay (let UI render)
+            setTimeout(() => {
+                autoConnectWithEnvConfig(config.router);
+            }, 800);
+        }
+    } catch (e) {
+        // No auto-connect config, normal manual mode
+        console.log("Manual connection mode.");
+    }
 });
+
+// Show a styled banner at top of connection screen during auto-connect
+function showAutoConnectBanner(name, host) {
+    const banner = document.createElement("div");
+    banner.id = "auto-connect-banner";
+    banner.style.cssText = `
+        background: linear-gradient(135deg, rgba(16,185,129,0.15), rgba(6,182,212,0.15));
+        border: 1px solid rgba(16,185,129,0.4);
+        border-radius: 12px;
+        padding: 14px 20px;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 0.9rem;
+        color: #10b981;
+    `;
+    banner.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        <span>جاري الاتصال التلقائي بـ <strong>${name}</strong> — <code>${host}</code></span>
+        <span class="animate-pulse" style="margin-inline-start:auto; font-size:0.8rem; color: var(--text-secondary);">يُرجى الانتظار...</span>
+    `;
+    const screen = document.getElementById("connection-screen");
+    if (screen) {
+        const header = screen.querySelector(".connection-header");
+        if (header) screen.insertBefore(banner, header.nextSibling.nextSibling);
+    }
+}
+
+// Auto-connect using server-side credentials (password never leaves the server)
+async function autoConnectWithEnvConfig(routerInfo) {
+    const connectBtn = document.getElementById("btn-connect-router");
+    if (connectBtn) {
+        connectBtn.disabled = true;
+        connectBtn.innerHTML = `<span class="animate-pulse">جاري الاتصال التلقائي...</span>`;
+    }
+
+    try {
+        // Special header tells server to use its own env-var credentials
+        const response = await fetch('/api/test', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Use-Env-Config': 'true'
+            }
+        });
+
+        const connData = await response.json();
+
+        if (!response.ok || !connData.success) {
+            throw new Error(connData.message || 'فشل الاتصال التلقائي');
+        }
+
+        // Remove banner
+        const banner = document.getElementById("auto-connect-banner");
+        if (banner) banner.remove();
+
+        // Set active session using server-side config
+        activeRouter = {
+            host: routerInfo.host,
+            user: routerInfo.user,
+            pass: '__env__', // Placeholder - actual pass stays on server
+            port: routerInfo.port,
+            type: routerInfo.type || 'api',
+            useEnvConfig: true
+        };
+
+        // Switch to main panel
+        document.getElementById("connection-screen").classList.add("hidden");
+        document.getElementById("main-panel").classList.remove("hidden");
+
+        document.getElementById("connected-router-name").innerText = connData.data.identity.name || routerInfo.name;
+        document.getElementById("router-ip-display").innerText = routerInfo.host;
+
+        showToast("toast_conn_success", "success");
+        startDashboardPolling(connData.data);
+        initTrafficChart();
+
+    } catch (e) {
+        console.error("Auto-connect failed:", e);
+        const banner = document.getElementById("auto-connect-banner");
+        if (banner) {
+            banner.style.background = 'linear-gradient(135deg, rgba(239,68,68,0.15), rgba(220,38,38,0.1))';
+            banner.style.borderColor = 'rgba(239,68,68,0.4)';
+            banner.style.color = '#ef4444';
+            banner.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                <span>فشل الاتصال التلقائي: <strong>${e.message}</strong> — تأكد من تفعيل منفذ API 8728 وفتح الـ Port Forwarding</span>
+            `;
+        }
+        if (connectBtn) {
+            connectBtn.disabled = false;
+            connectBtn.innerHTML = `<span data-localize="btn_connect">اتصال الآن</span><i data-lucide="arrow-left" class="btn-arrow"></i>`;
+            lucide.createIcons();
+        }
+    }
+}
+
 
 // --------------------------------------------------------------------------
 // 4. LOCALIZATION FUNCTIONS
@@ -403,14 +529,20 @@ async function apiRequest(endpoint, body = {}) {
         throw new Error("No active router session established.");
     }
 
-    const headers = {
-        "Content-Type": "application/json",
-        "X-Router-Host": activeRouter.host,
-        "X-Router-User": activeRouter.user,
-        "X-Router-Pass": activeRouter.pass,
-        "X-Router-Port": activeRouter.port,
-        "X-Router-Type": activeRouter.type
+    let headers = {
+        "Content-Type": "application/json"
     };
+
+    // If using server-side env config (password stays on server)
+    if (activeRouter.useEnvConfig) {
+        headers["X-Use-Env-Config"] = "true";
+    } else {
+        headers["X-Router-Host"] = activeRouter.host;
+        headers["X-Router-User"] = activeRouter.user;
+        headers["X-Router-Pass"] = activeRouter.pass;
+        headers["X-Router-Port"] = activeRouter.port;
+        headers["X-Router-Type"] = activeRouter.type;
+    }
 
     const response = await fetch(endpoint, {
         method: "POST",
